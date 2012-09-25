@@ -49,8 +49,8 @@ appPrec :: Prec
 appPrec = 11 -- was 10
 
 appHS :: Binop HDoc
-appHS f a p = hsParen (p >= appPrec) $
-              liftA2 App (f (appPrec+1)) (a appPrec)
+appHS f a p = hsParen (p > appPrec) $
+              liftA2 App (f appPrec) (a (appPrec+1))
 
 lamHS :: Pat -> Unop HDoc
 lamHS pat d p = hsParen (p > 0) $
@@ -99,12 +99,8 @@ infixHS' (Fixity assoc q name) a b p =
    incr | extraParens = succ
         | otherwise   = id
 
--- TODO: Look up fixities from Language.Haskell.Exts.Fixity
-
 extraParens :: Bool
-extraParens = True
-
--- TODO: Refactor. hsApp, hsApp1, hsOp2, .... Exp utilities.
+extraParens = False
 
 hsName :: String -> HDoc
 hsName s _ = return (Var . UnQual . Ident $ s) -- hack: for numbers etc
