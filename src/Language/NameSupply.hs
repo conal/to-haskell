@@ -15,7 +15,7 @@
 -- Supply monad
 ----------------------------------------------------------------------
 
-module Language.NameSupply (Supply,supplyNew,Name,NameM,withNames) where
+module Language.NameSupply (Supply,supplyNew,allNames,Name,NameM,withNames) where
 
 -- TODO: explicit exports
 
@@ -32,8 +32,9 @@ supplyNew = do x:xs' <- get
 
 type Name = String
 
+-- | All names made purely of lower-case alphabetic characters, ordered by
+-- increasing size (starting with one) and alphabetically within each size.
 allNames :: [Name]
-
 allNames = reverse <$> tail ns
  where
    ns = "" : [c : n | n <- ns, c <- ['a'..'z']]
