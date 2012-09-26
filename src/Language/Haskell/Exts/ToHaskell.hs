@@ -17,11 +17,11 @@
 
 module Language.Haskell.Exts.ToHaskell
   ( ToHaskell(..), HDoc, showsPrecHS
-  , appHS, lamHS, letHS, tupleHS, infixHS, hsName -- , opName
+  , appHS, ifHS, lamHS, letHS, tupleHS, infixHS, hsName -- , opName
   ) where
 
 import Data.Functor ((<$>))
-import Control.Applicative (liftA2)
+import Control.Applicative (liftA2,liftA3)
 import Control.Monad ((>=>),mzero)
 import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
@@ -52,6 +52,9 @@ appHS :: Binop HDoc
 appHS f a p = hsParen (p > appPrec) $
               liftA2 App (f appPrec) (a (appPrec+1))
 
+ifHS :: Ternop HDoc
+ifHS i t e p = hsParen (p > 0) $ liftA3 If (i 0) (t 0) (e 0)
+
 lamHS :: Pat -> Unop HDoc
 lamHS pat d p = hsParen (p > 0) $
                 Lambda noLoc [pat] <$> d 0
@@ -62,8 +65,11 @@ letHS pat rhs body p = hsParen (p > 0) $
 
 simpleLet :: Pat -> Binop Exp
 simpleLet pat r b =
-  Let (BDecls [PatBind noLoc pat Nothing (UnGuardedRhs r) (BDecls [])]) b
+  mkLet (BDecls [PatBind noLoc pat Nothing (UnGuardedRhs r) (BDecls [])]) b
 
+mkLet :: Binds -> Exp -> Exp
+mkLet (BDecls ds) (Let (BDecls ds') e) = Let (BDecls (ds ++ ds')) e
+mkLet bs          e                    = Let bs e
 
 tupleHS :: [HDoc] -> HDoc
 tupleHS ds _ = Tuple <$> mapM ($ 0) ds
@@ -138,5 +144,6 @@ dropRev x = fmap reverse . dropP
     Misc
 --------------------------------------------------------------------}
 
-type Unop  a = a -> a
-type Binop a = a -> Unop a
+type Unop   a = a -> a
+type Binop  a = a -> Unop a
+type Ternop a = a -> Binop a
