@@ -15,7 +15,9 @@
 -- Supply monad
 ----------------------------------------------------------------------
 
-module Language.NameSupply (Supply,supplyNew,allNames,Name,NameM,withNames) where
+module Language.NameSupply
+  ( Supply,supplyNew,allNames,Name,NameM,withNames,withAllNames
+  ) where
 
 -- TODO: explicit exports
 
@@ -45,5 +47,8 @@ allNames = reverse <$> tail ns
 
 type NameM = Supply Name
 
-withNames :: NameM a -> a
-withNames = flip evalState allNames
+withNames :: [Name] -> NameM a -> a
+withNames = flip evalState
+
+withAllNames :: NameM a -> a
+withAllNames = withNames allNames
