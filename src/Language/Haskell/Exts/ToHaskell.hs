@@ -16,8 +16,8 @@
 ----------------------------------------------------------------------
 
 module Language.Haskell.Exts.ToHaskell
-  ( ToHS(..), HDoc, showsPrecHS
-  , appHS, ifHS, lamHS, letHS, tupleHS, infixHS, hsName, hsShow -- , opName
+  ( ToHS(..), HDoc, Prec, showsPrecHS
+  , appHS, ifHS, lamHS, letHS, tupleHS, infixHS, hsName, hsShow
   , ToHSPat(..)
   ) where
 
@@ -31,17 +31,15 @@ import Language.Haskell.Exts.Syntax
 import Language.Haskell.Exts.Fixity
 import Language.Haskell.Exts.Pretty (prettyPrint)
 
-import Language.NameSupply
-
 type Prec = Int -- precedence level
 
-type HDoc = Prec -> NameM Exp
+type HDoc = Prec -> Exp
 
 class ToHS a where
   toHS :: a -> HDoc
 
 showsPrecHS :: ToHS a => Prec -> a -> ShowS
-showsPrecHS p a s = prettyPrint (withAllNames (toHS a p)) ++ s
+showsPrecHS p a s = prettyPrint (toHS a p) ++ s
 
 -- Precedence of function application.
 -- Hack: use 11 instead of 10 to avoid extraneous parens when a function
@@ -51,18 +49,18 @@ appPrec = 11 -- was 10
 
 appHS :: Binop HDoc
 appHS f a p = hsParen (p > appPrec) $
-              liftA2 App (f appPrec) (a (appPrec+1))
+              App (f appPrec) (a (appPrec+1))
 
 ifHS :: Ternop HDoc
-ifHS i t e p = hsParen (p > 0) $ liftA3 If (i 0) (t 0) (e 0)
+ifHS i t e p = hsParen (p > 0) $ If (i 0) (t 0) (e 0)
 
 lamHS :: Pat -> Unop HDoc
 lamHS pat d p = hsParen (p > 0) $
-                Lambda noLoc [pat] <$> d 0
+                Lambda noLoc [pat] (d 0)
 
 letHS :: Pat -> Binop HDoc
 letHS pat rhs body p = hsParen (p > 0) $ 
-                       liftA2 (simpleLet pat) (rhs 0) (body 0)
+                       simpleLet pat (rhs 0) (body 0)
 
 simpleLet :: Pat -> Binop Exp
 simpleLet pat r b =
@@ -73,7 +71,7 @@ mkLet (BDecls ds) (Let (BDecls ds') e) = Let (BDecls (ds ++ ds')) e
 mkLet bs          e                    = Let bs e
 
 tupleHS :: [HDoc] -> HDoc
-tupleHS ds _ = Tuple <$> mapM ($ 0) ds
+tupleHS ds _ = Tuple (map ($ 0) ds)
 
 -- opSym :: String -> QOp
 -- opSym = QVarOp . UnQual . Symbol
@@ -97,7 +95,7 @@ fixityMap = M.fromList (keyed <$> allFixities)
 infixHS' :: Fixity -> Binop HDoc
 infixHS' (Fixity assoc q name) a b p =
   hsParen (p > q) $
-          liftA2 (flip InfixApp (QVarOp name)) (a (lf q)) (b (rf q))
+          InfixApp (a (lf q)) (QVarOp name) (b (rf q))
  where
    (lf,rf) = case assoc of
                AssocLeft  -> (incr, succ)
@@ -110,7 +108,7 @@ extraParens :: Bool
 extraParens = True
 
 hsName :: String -> HDoc
-hsName s _ = return (Var . UnQual . Ident $ s) -- hack: for numbers etc
+hsName s _ = Var . UnQual . Ident $ s -- hack: for numbers etc
 
 hsShow :: Show a => a -> HDoc
 hsShow = hsName . show
@@ -118,8 +116,9 @@ hsShow = hsName . show
 noLoc :: SrcLoc
 noLoc = SrcLoc "no file" 0 0
 
-hsParen :: Bool -> Unop (NameM Exp)
-hsParen needsParens = fmap (if needsParens then Paren else id)
+hsParen :: Bool -> Unop Exp
+hsParen True  = Paren
+hsParen False = id
 
 allFixities :: [Fixity]
 allFixities = baseFixities
