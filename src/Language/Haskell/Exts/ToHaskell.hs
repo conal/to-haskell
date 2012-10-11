@@ -16,8 +16,9 @@
 ----------------------------------------------------------------------
 
 module Language.Haskell.Exts.ToHaskell
-  ( ToHaskell(..), HDoc, showsPrecHS
-  , appHS, ifHS, lamHS, letHS, tupleHS, infixHS, hsName -- , opName
+  ( ToHS(..), HDoc, showsPrecHS
+  , appHS, ifHS, lamHS, letHS, tupleHS, infixHS, hsName, hsShow -- , opName
+  , ToHSPat(..)
   ) where
 
 import Data.Functor ((<$>))
@@ -36,11 +37,11 @@ type Prec = Int -- precedence level
 
 type HDoc = Prec -> NameM Exp
 
-class ToHaskell a where
+class ToHS a where
   toHS :: a -> HDoc
 
-showsPrecHS :: ToHaskell a => Prec -> a -> ShowS
-showsPrecHS p a s = prettyPrint (withNames (toHS a p)) ++ s
+showsPrecHS :: ToHS a => Prec -> a -> ShowS
+showsPrecHS p a s = prettyPrint (withAllNames (toHS a p)) ++ s
 
 -- Precedence of function application.
 -- Hack: use 11 instead of 10 to avoid extraneous parens when a function
@@ -106,11 +107,13 @@ infixHS' (Fixity assoc q name) a b p =
         | otherwise   = id
 
 extraParens :: Bool
-extraParens = False
+extraParens = True
 
 hsName :: String -> HDoc
 hsName s _ = return (Var . UnQual . Ident $ s) -- hack: for numbers etc
 
+hsShow :: Show a => a -> HDoc
+hsShow = hsName . show
 
 noLoc :: SrcLoc
 noLoc = SrcLoc "no file" 0 0
@@ -120,6 +123,8 @@ hsParen needsParens = fmap (if needsParens then Paren else id)
 
 allFixities :: [Fixity]
 allFixities = baseFixities
+
+class ToHSPat a where toHSPat :: a -> Pat
 
 {-
 -- Convert simple function names to operator names
